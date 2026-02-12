@@ -41,18 +41,15 @@ def download_logs(date: str):
             bin_data = bin_doc.to_dict()
             device_id = bin_doc.id
 
-            logs_ref = (
+            log_doc = (
                 db.collection("bins")
                 .document(device_id)
                 .collection("logs")
-                .where("date", "==", date)
-                .order_by("timestamp", direction=firestore.Query.DESCENDING)
-                .limit(1)
+                .document(date)
+                .get()
             )
 
-            logs = list(logs_ref.stream())
-
-            log_data = logs[0].to_dict() if logs else {}
+            log_data = log_doc.to_dict() if log_doc.exists else {}
 
             rows.append({
                 "barcode": device_id,
