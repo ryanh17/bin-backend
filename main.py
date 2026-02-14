@@ -12,6 +12,8 @@ db = firestore.client()
 
 app = FastAPI()
 
+DEVICE_SECRET = "skyacres-ogmP3GCWq@"
+
 
 @app.get("/")
 def health():
@@ -71,3 +73,22 @@ def download_logs(date: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+
+@app.route("/log", methods=["POST"])
+def log_data():
+    auth_header = request.headers.get("Authorization")
+
+    if auth_header != f"Bearer {DEVICE_SECRET}":
+        return {"error": "Unauthorized"}, 403
+
+    data = request.json
+
+    db.collection("bins") \
+      .document(data["binId"]) \
+      .collection("logs") \
+      .add(data)
+
+    return {"status": "ok"}
