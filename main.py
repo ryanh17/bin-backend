@@ -52,17 +52,38 @@ async def get_bin_info(bin_id: str, request: Request):
 
 @app.post("/upload-log")
 async def upload_log(request: Request):
-    # ESP32 authenticates using DEVICE_SECRET
+
+    # ---- Simple device authentication ----
     auth_header = request.headers.get("Authorization")
     if auth_header != f"Bearer {DEVICE_SECRET}":
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     data = await request.json()
-    bin_id = data["binId"]
-    log_id = str(data.get("timestamp"))  # Use timestamp as document ID
 
-    db.collection("bins").document(bin_id).collection("logs").document(log_id).set(data)
-    return {"status": "ok"}
+    bin_id = data.get("binId")
+    date_id = data.get("date")
+
+    if not bin_id or not date_id:
+        raise HTTPException(status_code=400, detail="Missing binId or date")
+
+    # Remove binId + date from stored fields if you want
+    log_data = {
+        "ec": data.get("ec"),
+        "targetEC": data.get("targetEC"),
+        "dispenseInfo": data.get("dispenseInfo"),
+        "premix": data.get("premix"),
+        "totalVolume": data.get("totalVolume"),
+        "timestamp": data.get("timestamp"),
+    }
+
+    # Overwrites same-day document
+    db.collection("bins") \
+      .document(bin_id) \
+      .collection("logs") \
+      .document(date_id) \
+      .set(log_data)
+
+    return {"status": "success"}
 
 # ---------------------------
 # Frontend Routes (Firebase Auth)
