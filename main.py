@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 import firebase_admin
 from firebase_admin import firestore, auth
 import pandas as pd
+from fastapi.middleware.cors import CORSMiddleware
 
 # ---------------------------
 # Initialize Firebase Admin
@@ -20,6 +21,23 @@ DEVICE_SECRET = os.getenv("DEVICE_SECRET")  # for ESP32 devices
 # FastAPI App
 # ---------------------------
 app = FastAPI()
+
+
+# Allow your frontend origin to access the backend
+origins = [
+    "https://skydoser-test.web.app",
+    # you can also add localhost for testing
+    "http://localhost:5000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # or ["*"] for testing only
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ---------------------------
 # Health Check
