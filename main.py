@@ -1,10 +1,12 @@
 import os
-from fastapi import FastAPI, Request, HTTPException
+import io
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 import firebase_admin
 from firebase_admin import firestore, auth
 import pandas as pd
-from fastapi.middleware.cors import CORSMiddleware
+
 
 # ---------------------------
 # Initialize Firebase Admin
@@ -216,6 +218,41 @@ async def delete_bin(request: Request, device_id: str):
           .delete()
 
         return {"success": True}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/upload-bins-csv")
+async def upload_bins_csv(request: Request, file: UploadFile = File(...)):
+    uid = verify_firebase_token(request)
+
+    user_doc = db.collection("users").document(uid).get()
+    location_id = user_doc.to_dict().get("location")
+    if not location_id:
+        raise HTTPException(status_code=403, detail="No location assigned")
+
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+        required_cols = ["barcode", "growthStage", "colour"]
+        if not all(col in df.columns for col in required_cols):
+            raise HTTPException(status_code=400, detail=f"CSV must have columns: {required_cols}")
+
+        for _, row in df.iterrows():
+            device_id = str(row["barcode"]).strip()
+            growthStage = str(row["growthStage"])
+            colour = str(row["colour"])
+
+            db.collection("locations") \
+              .document(location_id) \
+              .collection("bins") \
+              .document(device_id) \
+              .set({
+                  "growthStage": growthStage,
+                  "colour": colour
+              }, merge=True)
+
+        return {"success": True, "message": f"{len(df)} bins added/updated"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
