@@ -198,3 +198,24 @@ async def get_bins(request: Request):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+@app.delete("/delete-bin")
+async def delete_bin(request: Request, device_id: str):
+    decoded_token = verify_firebase_token(request)
+    location_id = decoded_token.get("locationId")
+
+    if not location_id:
+        raise HTTPException(status_code=403, detail="No location assigned")
+
+    try:
+        db.collection("locations") \
+          .document(location_id) \
+          .collection("bins") \
+          .document(device_id) \
+          .delete()
+
+        return {"success": True}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
