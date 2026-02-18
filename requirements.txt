@@ -3,3 +3,4 @@ uvicorn
 firebase-admin
 pandas
 io
+python-multipart

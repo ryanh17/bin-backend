@@ -1,4 +1,5 @@
 import os
+import uvicorn
 import io
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
@@ -256,3 +257,8 @@ async def upload_bins_csv(request: Request, file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
