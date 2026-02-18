@@ -122,7 +122,13 @@ def verify_firebase_token(request: Request):
 async def download_logs(request: Request, date: str):
     uid = verify_firebase_token(request)
 
-    bins = db.collection("bins").stream()
+    user_doc = db.collection("users").document(uid).get()
+    location_id = user_doc.to_dict().get("location")
+
+    bins = db.collection("locations") \
+            .document(location_id) \
+            .collection("bins") \
+            .stream()
     rows = []
 
     for bin_doc in bins:
@@ -152,13 +158,43 @@ async def download_logs(request: Request, date: str):
 @app.post("/update-bin")
 async def update_bin(request: Request, device_id: str, growthStage: str, colour: str):
     uid = verify_firebase_token(request)
-    # Optionally: enforce per-location access here using custom claims
+
+    # Get user's location
+    user_doc = db.collection("users").document(uid).get()
+    if not user_doc.exists:
+        raise HTTPException(status_code=403, detail="User not found")
+
+    location_id = user_doc.to_dict().get("location")
 
     try:
-        db.collection("bins").document(device_id).update({
+        db.collection("locations").document(location_id).collection("bins").document(device_id).update({
             "growthStage": growthStage,
             "colour": colour
         })
+
         return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/bins")
+async def get_bins(request: Request):
+    uid = verify_firebase_token(request)
+
+    user_doc = db.collection("users").document(uid).get()
+    location_id = user_doc.to_dict().get("location")
+    if not location_id:
+        raise HTTPException(status_code=403, detail="No location assigned")
+
+    try:
+        bins_ref = db.collection("locations").document(location_id).collection("bins").stream()
+
+        bins = []
+        for doc in bins_ref:
+            bin_data = doc.to_dict()
+            bin_data["device_id"] = doc.id
+            bins.append(bin_data)
+
+        return {"bins": bins}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
