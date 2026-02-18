@@ -167,10 +167,10 @@ async def update_bin(request: Request, device_id: str, growthStage: str, colour:
     location_id = user_doc.to_dict().get("location")
 
     try:
-        db.collection("locations").document(location_id).collection("bins").document(device_id).update({
+        db.collection("locations").document(location_id).collection("bins").document(device_id).set({
             "growthStage": growthStage,
             "colour": colour
-        })
+        }, merge=True)
 
         return {"success": True}
     except Exception as e:
