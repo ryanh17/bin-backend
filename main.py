@@ -53,14 +53,14 @@ async def health():
 # ESP32 Routes
 # ---------------------------
 
-@app.get("/bin-info/{bin_id}")
-async def get_bin_info(bin_id: str, request: Request):
+@app.get("/bin-info/{location_id}/{bin_id}")
+async def get_bin_info(location_id: str, bin_id: str, request: Request):
     # ESP32 authenticates using DEVICE_SECRET
     auth_header = request.headers.get("Authorization")
     if auth_header != f"Bearer {DEVICE_SECRET}":
         raise HTTPException(status_code=403, detail="Unauthorized")
 
-    bin_doc = db.collection("bins").document(bin_id).get()
+    bin_doc = db.collection("locations").document(location_id).collection("bins").document(bin_id).get()
     if not bin_doc.exists:
         raise HTTPException(status_code=404, detail="Bin not found")
 
@@ -71,8 +71,8 @@ async def get_bin_info(bin_id: str, request: Request):
         "colour": data.get("colour")
     }
 
-@app.post("/upload-log")
-async def upload_log(request: Request):
+@app.post("/upload-log/{location_id}")
+async def upload_log(request: Request, location_id: str):
 
     # ---- Simple device authentication ----
     auth_header = request.headers.get("Authorization")
@@ -98,7 +98,9 @@ async def upload_log(request: Request):
     }
 
     # Overwrites same-day document
-    db.collection("bins") \
+    db.collection("locations") \
+      .document(location_id) \
+      .collection("bins") \
       .document(bin_id) \
       .collection("logs") \
       .document(date_id) \
