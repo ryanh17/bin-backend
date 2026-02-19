@@ -140,7 +140,7 @@ async def download_logs(request: Request, date: str):
         bin_data = bin_doc.to_dict()
         device_id = bin_doc.id
 
-        log_doc = db.collection("bins").document(device_id).collection("logs").document(date).get()
+        log_doc = db.collection("locations").document(location_id).collection("bins").document(device_id).collection("logs").document(date).get()
         log_data = log_doc.to_dict() if log_doc.exists else {}
 
         rows.append({
