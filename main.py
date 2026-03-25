@@ -69,28 +69,10 @@ async def get_bin_info(location_id: str, bin_id: str, request: Request):
     data = bin_doc.to_dict()
     return {
         "growthStage": data.get("growthStage"),
-        "colour": data.get("colour")
-    }
-
-
-@app.get("/bin-info-legacy/{location_id}/{bin_id}")
-async def get_bin_info_legacy(location_id: str, bin_id: str, request: Request):
-    # ESP32 authenticates using DEVICE_SECRET
-    auth_header = request.headers.get("Authorization")
-    if auth_header != f"Bearer {DEVICE_SECRET}":
-        raise HTTPException(status_code=403, detail="Unauthorized")
-
-    bin_doc = db.collection("locations").document(location_id).collection("bins").document(bin_id).get()
-    if not bin_doc.exists:
-        raise HTTPException(status_code=404, detail="Bin not found")
-
-    # Return growthStage, colour, and system for legacy setup (works for blue bins & hybrid)
-    data = bin_doc.to_dict()
-    return {
-        "growthStage": data.get("growthStage"),
         "colour": data.get("colour"),
         "system": data.get("system", "unknown")  # legacy field, defaults to "unknown"
     }
+
 
 @app.post("/upload-log/{location_id}")
 async def upload_log(request: Request, location_id: str):
@@ -268,19 +250,23 @@ async def upload_bins_csv(request: Request, file: UploadFile = File(...)):
         if not all(col in df.columns for col in required_cols):
             raise HTTPException(status_code=400, detail=f"CSV must have columns: {required_cols}")
 
+        has_system = "system" in df.columns
+
         for _, row in df.iterrows():
             device_id = str(row["barcode"]).strip()
-            growthStage = str(row["growthStage"])
-            colour = str(row["colour"])
+            data = {
+                "growthStage": str(row["growthStage"]),
+                "colour": str(row["colour"])
+            }
+
+            if has_system:
+                data["system"] = str(row["system"])
 
             db.collection("locations") \
               .document(location_id) \
               .collection("bins") \
               .document(device_id) \
-              .set({
-                  "growthStage": growthStage,
-                  "colour": colour
-              }, merge=True)
+              .set(data, merge=True)
 
         return {"success": True, "message": f"{len(df)} bins added/updated"}
 
