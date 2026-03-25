@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import firebase_admin
 from firebase_admin import firestore, auth
 import pandas as pd
+from typing import Optional
 
 
 # ---------------------------
@@ -69,6 +70,26 @@ async def get_bin_info(location_id: str, bin_id: str, request: Request):
     return {
         "growthStage": data.get("growthStage"),
         "colour": data.get("colour")
+    }
+
+
+@app.get("/bin-info-legacy/{location_id}/{bin_id}")
+async def get_bin_info_legacy(location_id: str, bin_id: str, request: Request):
+    # ESP32 authenticates using DEVICE_SECRET
+    auth_header = request.headers.get("Authorization")
+    if auth_header != f"Bearer {DEVICE_SECRET}":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    bin_doc = db.collection("locations").document(location_id).collection("bins").document(bin_id).get()
+    if not bin_doc.exists:
+        raise HTTPException(status_code=404, detail="Bin not found")
+
+    # Return growthStage, colour, and system for legacy setup (works for blue bins & hybrid)
+    data = bin_doc.to_dict()
+    return {
+        "growthStage": data.get("growthStage"),
+        "colour": data.get("colour"),
+        "system": data.get("system", "unknown")  # legacy field, defaults to "unknown"
     }
 
 @app.post("/upload-log/{location_id}")
@@ -161,10 +182,9 @@ async def download_logs(request: Request, date: str):
     return FileResponse(filename, filename=filename)
 
 @app.post("/update-bin")
-async def update_bin(request: Request, device_id: str, growthStage: str, colour: str):
+async def update_bin(request: Request, device_id: str, growthStage: str, colour: str, system: Optional[str] = None):
     uid = verify_firebase_token(request)
 
-    # Get user's location
     user_doc = db.collection("users").document(uid).get()
     if not user_doc.exists:
         raise HTTPException(status_code=403, detail="User not found")
@@ -172,10 +192,17 @@ async def update_bin(request: Request, device_id: str, growthStage: str, colour:
     location_id = user_doc.to_dict().get("location")
 
     try:
-        db.collection("locations").document(location_id).collection("bins").document(device_id).set({
+        data = {
             "growthStage": growthStage,
             "colour": colour
-        }, merge=True)
+        }
+
+        if system is not None:
+            data["system"] = system
+
+        db.collection("locations").document(location_id).collection("bins").document(device_id).set(
+            data, merge=True
+        )
 
         return {"success": True}
     except Exception as e:
