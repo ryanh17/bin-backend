@@ -97,7 +97,9 @@ async def upload_log(request: Request, location_id: str):
         "dispenseInfo": data.get("dispenseInfo"),
         "premix": data.get("premix"),
         "totalVolume": data.get("totalVolume"),
-        "timestamp": data.get("timestamp"),
+        "temperature": data.get("temperature"),
+        "pH": data.get("pH"),
+        "timestamp": data.get("timestamp")
     }
 
     # Overwrites same-day document
